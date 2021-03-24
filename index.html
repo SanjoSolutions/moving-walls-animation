@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title></title>
+</head>
+<body>
+  <canvas></canvas>
+
+  <script>
+    const canvas = document.querySelector('canvas')
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
+    const context = canvas.getContext('2d')
+
+    const minRect = {
+      width: 0.25,
+      height: 0.25
+    }
+    const maxRect = {
+      width: 1,
+      height: 1
+    }
+    const rect1 = calculateRect(minRect)
+    const rect2 = calculateRect(maxRect)
+    const distanceBetweenMovingRects = 50
+    const angle = Math.atan2(
+      rect2.y - rect1.y,
+      rect2.x - rect1.x
+    )
+    const offset = {
+      x: distanceBetweenMovingRects * Math.cos(angle),
+      y: distanceBetweenMovingRects * Math.sin(angle)
+    }
+    const offsetDistance = Math.sqrt(offset.x ** 2 + offset.y ** 2)
+    let factor = Math.ceil(
+      distance({x: rect1.x, y: rect1.y}, {x: rect2.x, y: rect2.y}) /
+      offsetDistance
+    )
+    if (factor % 2 === 1) {
+      factor += 1
+    }
+    const maxRenderRect = {
+      x: rect1.x + factor * offset.x,
+      y: rect1.y + factor * offset.y,
+      w: rect1.w - 2 * factor * offset.x,
+      h: rect1.h - 2 * factor * offset.y
+    }
+    let movingRect = {
+      ...minRect
+    }
+
+    function render() {
+      context.clearRect(rect2.x, rect2.y, rect2.w, rect2.h)
+
+      const rect3 = calculateRect(movingRect)
+
+      const rectsA = []
+      const rectsB = []
+
+      let rect4 = movingRectWithOffset(rect3, offset)
+      while (
+        rect4.w < rect2.w ||
+        rect4.h < rect2.h
+      ) {
+        rectsA.push(rect4)
+        rect4 = movingRectWithOffset(rect4, offset)
+      }
+
+      const negativeOffset = {x: -offset.x, y: -offset.y}
+      let rect5
+      rect4 = movingRectWithOffset(rect3, negativeOffset)
+      while (
+        rect4.w > rect1.w ||
+        rect4.w > rect1.w
+      ) {
+        if (!rect5) {
+          rect5 = rect4
+        }
+        rectsB.push(rect4)
+        rect4 = movingRectWithOffset(rect4, negativeOffset)
+      }
+
+      const colors = [
+        'black',
+        'white'
+      ]
+      let colorIndex
+
+      const rectsD = [rect3, ...rectsA]
+      colorIndex = colors.length - 1
+      for (let index = 0; index < rectsD.length - 1; index++) {
+        const color = colors[colorIndex]
+        fillRectA(rectsD[index], rectsD[index + 1], color)
+        colorIndex = (colorIndex + 1) % colors.length
+      }
+      fillRectA(rectsD[rectsD.length - 1], rect2, colors[colorIndex])
+
+      const rectsC = [rect3, ...rectsB]
+      colorIndex = 0
+      for (let index = 0; index < rectsC.length - 1; index++) {
+        const color = colors[colorIndex]
+        fillRectA(rectsC[index + 1], rectsC[index], color)
+        colorIndex = (colorIndex + 1) % colors.length
+      }
+      fillRectA(rect1, rectsC[rectsC.length - 1], colors[colorIndex])
+
+      drawRect(rect1)
+      drawRect(rect2)
+      drawRect(rect3)
+
+      for (const rect of rectsA.concat(rectsB)) {
+        drawRect(rect)
+      }
+
+      connectRects(rect1, rect2)
+
+      movingRect = {
+        width: movingRect.width + 0.001,
+        height: movingRect.height + 0.001
+      }
+      const calculatedMovingRect = calculateRect(movingRect)
+      if (
+        calculatedMovingRect.w > maxRenderRect.w ||
+        calculatedMovingRect.h > maxRenderRect.h
+      ) {
+        movingRect = { ...minRect }
+      }
+
+      scheduleNextRender()
+    }
+
+    function calculateRect(rect) {
+      const w = rect.width * canvas.width
+      const x = 0.5 * (canvas.width - w)
+      const h = rect.height * canvas.height
+      const y = 0.5 * (canvas.height - h)
+      return {
+        x,
+        y,
+        w,
+        h
+      }
+    }
+
+    function drawRect({x, y, w, h}, color = 'black') {
+      context.strokeStyle = color
+      context.beginPath()
+      context.rect(x, y, w, h)
+      context.stroke()
+    }
+
+    function connectRects(rect1, rect2) {
+      connectPoints(
+        {x: rect1.x, y: rect1.y},
+        {x: rect2.x, y: rect2.y}
+      )
+      connectPoints(
+        {x: rect1.x + rect1.w, y: rect1.y},
+        {x: rect2.x + rect2.w, y: rect2.y}
+      )
+      connectPoints(
+        {x: rect1.x, y: rect1.y + rect1.h},
+        {x: rect2.x, y: rect2.y + rect2.h}
+      )
+      connectPoints(
+        {x: rect1.x + rect1.w, y: rect1.y + rect1.h},
+        {x: rect2.x + rect2.w, y: rect2.y + rect2.h}
+      )
+    }
+
+    function connectPoints(point1, point2) {
+      context.beginPath()
+      context.moveTo(point1.x, point1.y)
+      context.lineTo(point2.x, point2.y)
+      context.stroke()
+    }
+
+    function movingRectWithOffset(rect, offset) {
+      return {
+        x: rect.x + offset.x,
+        y: rect.y + offset.y,
+        w: rect.w - 2 * offset.x,
+        h: rect.h - 2 * offset.y
+      }
+    }
+
+    function fillRectA(rect1, rect2, color) {
+      context.save()
+      context.fillStyle = color
+      context.beginPath()
+      context.rect(rect1.x, rect1.y, rect1.w, rect1.h)
+      context.rect(rect2.x, rect2.y, rect2.w, rect2.h)
+      context.clip('evenodd')
+      context.fill()
+      context.restore()
+    }
+
+    function distance(a, b) {
+      return Math.sqrt(
+        (b.x - a.x) ** 2 +
+        (b.y - a.y) ** 2
+      )
+    }
+
+    function scheduleNextRender() {
+      requestAnimationFrame(render)
+    }
+
+    scheduleNextRender()
+  </script>
+</body>
+</html>
